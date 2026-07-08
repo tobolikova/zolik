@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Ferbl</title>
+  <title>Žolíky</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,43 +12,39 @@
 
   <!-- ===== NASTAVENÍ ===== -->
   <div id="screen-setup" class="screen">
-    <div class="setup-title">FERBL</div>
-    <div class="setup-subtitle">Upravená verze Prší</div>
+    <div class="setup-title">ŽOLÍKY</div>
+    <div class="setup-subtitle">Klasická karetní hra – skládej skupiny a postupky</div>
 
     <div class="settings-row">
       <span class="settings-label">HERNÍ MÓD</span>
       <div class="opt-group" id="mode-btns">
-        <button class="opt-btn selected" data-value="local">Lokální</button>
-        <button class="opt-btn" data-value="ai">Vs roboti</button>
+        <button class="opt-btn" data-value="local">Lokální</button>
+        <button class="opt-btn selected" data-value="ai">Vs roboti</button>
         <button class="opt-btn" data-value="online">Online</button>
       </div>
     </div>
 
     <!-- Lokální nastavení -->
-    <div id="local-settings">
+    <div id="local-settings" class="hidden">
       <div class="settings-row">
         <span class="settings-label">POČET HRÁČŮ</span>
         <div class="opt-group" id="player-count-btns">
-          <button class="opt-btn" data-value="2">2</button>
-          <button class="opt-btn selected" data-value="3">3</button>
+          <button class="opt-btn selected" data-value="2">2</button>
+          <button class="opt-btn" data-value="3">3</button>
           <button class="opt-btn" data-value="4">4</button>
-          <button class="opt-btn" data-value="5">5</button>
-          <button class="opt-btn" data-value="6">6</button>
         </div>
       </div>
       <div id="player-names-container"></div>
     </div>
 
     <!-- AI nastavení -->
-    <div id="ai-settings" class="hidden">
+    <div id="ai-settings">
       <div class="settings-row">
         <span class="settings-label">POČET ROBOTŮ</span>
         <div class="opt-group" id="ai-count-btns" style="flex-wrap:nowrap">
           <button class="opt-btn" data-value="1">1</button>
           <button class="opt-btn selected" data-value="2">2</button>
           <button class="opt-btn" data-value="3">3</button>
-          <button class="opt-btn" data-value="4">4</button>
-          <button class="opt-btn" data-value="5">5</button>
         </div>
       </div>
       <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
@@ -96,34 +92,14 @@
       </div>
     </div>
 
-    <!-- Balíček -->
-    <div class="settings-row">
-      <span class="settings-label">BALÍČEK KARET</span>
-      <div class="opt-group" id="deck-type-btns">
-        <button class="opt-btn selected" data-value="32">32 karet</button>
-        <button class="opt-btn" data-value="52">52 karet</button>
-      </div>
-    </div>
-
-    <!-- Volitelná pravidla -->
-    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
-      <span class="settings-label">VOLITELNÁ PRAVIDLA</span>
-      <label class="switch-row">
-        <span>Žolíci v balíčku</span>
-        <label class="switch"><input type="checkbox" id="rule-jokers-in-deck"><span class="slider"></span></label>
-      </label>
-      <label class="switch-row">
-        <span>Žolík = brát 10 karet</span>
-        <label class="switch"><input type="checkbox" id="rule-joker" checked><span class="slider"></span></label>
-      </label>
-      <label class="switch-row">
-        <span>Návrat do hry</span>
-        <label class="switch"><input type="checkbox" id="rule-return" checked><span class="slider"></span></label>
-      </label>
+    <div class="rules-hint">
+      Vezmi si kartu, poskládej <b>skupiny</b> (3–4 stejné hodnoty) nebo <b>postupky</b>
+      (3+ za sebou v jedné barvě) a jednu kartu odhoď. Kdo první vyloží všechny karty, vyhrává.
+      <b>Žolík</b> 🃏 zastoupí libovolnou kartu.
     </div>
 
     <button class="btn-menu btn-start" id="start-btn">HRÁT</button>
-    <div id="app-version" style="margin-top:14px;font-size:0.75rem;color:var(--text-dim);opacity:0.45;letter-spacing:.05em;"></div>
+    <div id="app-version"></div>
   </div>
 
   <!-- ===== HERNÍ UI ===== -->
@@ -131,13 +107,10 @@
   <!-- Horní lišta -->
   <div id="top-bar">
     <div id="round-display">
-      <span id="round-num">HRA</span>
+      <span id="round-num">ŽOLÍKY</span>
     </div>
     <div id="top-bar-center">
-      <div id="pending-pill" class="hidden">
-        <span id="pending-count">0</span>&nbsp;karet
-      </div>
-      <div id="suit-pill" class="hidden"></div>
+      <div id="phase-pill"></div>
       <div class="speed-control">
         <button class="speed-btn active" data-speed="1">1×</button>
         <button class="speed-btn" data-speed="2">2×</button>
@@ -147,41 +120,35 @@
     <button id="menu-btn">Menu</button>
   </div>
 
-  <!-- Herní scaler (soupeři + stůl) -->
-  <div id="game-scaler">
-    <div id="players-container"></div>
-    <div id="center-area">
-      <!-- Balíček -->
+  <!-- Soupeři -->
+  <div id="opponents-strip"></div>
+
+  <!-- Střed: balíček, odhoz a vyložené skupiny na stole -->
+  <div id="table-area">
+    <div id="piles">
       <div id="draw-pile">
         <span id="deck-count-label"></span>
       </div>
-      <!-- Odhoz -->
       <div id="discard-pile"></div>
+    </div>
+    <div id="melds-area">
+      <div id="melds-empty-hint">Zatím nikdo nic nevyložil</div>
+      <div id="melds-list"></div>
     </div>
   </div>
 
-  <!-- Spodní oblast: ruka + info hráče -->
+  <!-- Spodní oblast: ruka + akce -->
   <div id="bottom-control-area">
-    <div id="cards-row">
+    <div id="my-info-row">
       <div id="my-player-slot-container"></div>
-      <div id="my-hand"></div>
+      <div id="turn-hint"></div>
     </div>
-    <div id="action-area">
-      <button id="draw-btn" class="btn-action">Vzít kartu</button>
-    </div>
+    <div id="my-hand"></div>
+    <div id="action-area"></div>
   </div>
 
   <!-- Toasty -->
   <div id="toast-container"></div>
-
-  <!-- Oznámení změny barvy -->
-  <div id="color-announcement" class="hidden">
-    <div class="color-ann-inner">
-      <span class="color-ann-sym">♥</span>
-      <div class="color-ann-label">ZVOLENA BARVA</div>
-      <span class="color-ann-name">Srdce</span>
-    </div>
-  </div>
 
   <!-- Předej zařízení overlay -->
   <div id="pass-overlay" class="screen hidden" style="z-index:5000">
@@ -191,19 +158,6 @@
       <p style="color:var(--text-dim);font-size:0.9rem">Je na řadě:</p>
       <h3 id="pass-player-name" style="font-size:2rem;color:var(--accent)"></h3>
       <button class="btn-menu" id="pass-ready-btn" style="margin-top:16px;width:220px">Jsem připraven</button>
-    </div>
-  </div>
-
-  <!-- Modal výběru barvy -->
-  <div id="suit-modal" class="screen hidden" style="z-index:4000">
-    <div class="modal-box">
-      <h3 style="margin-bottom:18px;font-size:1.1rem">Vyber barvu</h3>
-      <div class="suit-grid">
-        <button class="suit-pick-btn" data-suit="hearts"><span class="s red">♥</span><span>Srdce</span></button>
-        <button class="suit-pick-btn" data-suit="diamonds"><span class="s red">♦</span><span>Káry</span></button>
-        <button class="suit-pick-btn" data-suit="clubs"><span class="s">♣</span><span>Kříže</span></button>
-        <button class="suit-pick-btn" data-suit="spades"><span class="s">♠</span><span>Piky</span></button>
-      </div>
     </div>
   </div>
 
