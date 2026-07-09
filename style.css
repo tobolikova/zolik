@@ -198,8 +198,10 @@ html, body {
   flex-wrap: wrap;
   z-index: 100;
 }
-.player-slot { width: 132px; text-align: center; }
+.player-slot { min-width: 120px; max-width: 300px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.player-melds { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin-top: 8px; }
 .player-info {
+  width: 132px;
   background: var(--panel);
   padding: 7px 10px; border-radius: 12px;
   border: 2px solid rgba(255,255,255,0.08);
@@ -262,9 +264,10 @@ html, body {
   position: relative;
   width: var(--card-w); height: var(--card-h);
   border-radius: 6px;
-  border: 2px dashed rgba(255,255,255,0.18);
+  border: 2px solid transparent;   /* žádný obrys, jakmile je karta odhozená */
   cursor: default;
 }
+#discard-pile.empty { border: 2px dashed rgba(255,255,255,0.18); }   /* přerušovaný obrys jen dokud je prázdný */
 #discard-pile.can-take { border: 2px solid var(--gold); box-shadow: 0 0 14px rgba(255,204,0,0.5); cursor: pointer; }
 #discard-pile .discard-label {
   position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
@@ -413,6 +416,13 @@ html, body {
 #my-player-slot-container .player-info { border-color: var(--accent); }
 #turn-hint { font-size: 0.85rem; color: var(--gold); font-weight: 600; max-width: 60vw; }
 
+#my-melds {
+  --meld-color: var(--accent);
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px 16px; margin: 2px 0 6px; max-width: 96vw;
+}
+#my-melds:empty { display: none; }
+
 #my-hand {
   display: flex; justify-content: center; align-items: flex-end;
   flex-wrap: wrap; gap: 0;
@@ -424,9 +434,9 @@ html, body {
 
 /* ===== TOASTS ===== */
 #toast-container {
-  position: absolute; top: 72px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 50%; left: 12px; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 5px;
-  pointer-events: none; z-index: 3000; align-items: center;
+  pointer-events: none; z-index: 3000; align-items: flex-start;
 }
 .toast {
   background: rgba(15,17,32,0.97); border: 1.5px solid var(--accent);

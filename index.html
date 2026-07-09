@@ -92,6 +92,14 @@
       </div>
     </div>
 
+    <div class="settings-row">
+      <span class="settings-label">ŘAZENÍ KARET</span>
+      <div class="opt-group" id="sort-dir-btns">
+        <button class="opt-btn selected" data-value="desc">Od největší</button>
+        <button class="opt-btn" data-value="asc">Od nejmenší</button>
+      </div>
+    </div>
+
     <div class="rules-hint">
       Vezmi si kartu, poskládej <b>skupiny</b> (3–4 stejné hodnoty) nebo <b>postupky</b>
       (3+ za sebou v jedné barvě) a jednu kartu odhoď. Kdo první vyloží všechny karty, vyhrává.
@@ -123,7 +131,7 @@
   <!-- Soupeři -->
   <div id="opponents-strip"></div>
 
-  <!-- Střed: balíček, odhoz a vyložené skupiny na stole -->
+  <!-- Střed: jen balíček a odhoz (vyložené karty jsou u jednotlivých hráčů) -->
   <div id="table-area">
     <div id="piles">
       <div id="draw-pile">
@@ -131,18 +139,15 @@
       </div>
       <div id="discard-pile"></div>
     </div>
-    <div id="melds-area">
-      <div id="melds-empty-hint">Zatím nikdo nic nevyložil</div>
-      <div id="melds-list"></div>
-    </div>
   </div>
 
-  <!-- Spodní oblast: ruka + akce -->
+  <!-- Spodní oblast: mé vyložené karty + ruka + akce -->
   <div id="bottom-control-area">
     <div id="my-info-row">
       <div id="my-player-slot-container"></div>
       <div id="turn-hint"></div>
     </div>
+    <div id="my-melds"></div>
     <div id="my-hand"></div>
     <div id="action-area"></div>
   </div>
