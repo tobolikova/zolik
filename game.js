@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -16,6 +16,15 @@ const DISCARD_OPEN_ROUND = 4;  // z odhozu se dá brát až od 4. kola (po 3 doh
 // ===== STAV HRY =====
 let G = {};
 let speed = 1;
+let sortDir = loadSortDir();   // 'desc' = od největší (výchozí), 'asc' = od nejmenší
+
+function loadSortDir() {
+  try { return localStorage.getItem('zolik_sortDir') === 'asc' ? 'asc' : 'desc'; }
+  catch (e) { return 'desc'; }
+}
+function saveSortDir(v) {
+  try { localStorage.setItem('zolik_sortDir', v); } catch (e) {}
+}
 
 function getDelay(base = 800) { return base / speed; }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -40,6 +49,7 @@ setupBtnGroup('mode-btns', v => {
 setupBtnGroup('player-count-btns', v => buildNameInputs(parseInt(v, 10)));
 setupBtnGroup('ai-count-btns');
 setupBtnGroup('ai-diff-btns');
+setupBtnGroup('sort-dir-btns', v => { sortDir = v; saveSortDir(v); });
 
 function setupBtnGroup(id, onChange) {
   const container = document.getElementById(id);
@@ -67,6 +77,13 @@ function buildNameInputs(count) {
   }
 }
 buildNameInputs(2);
+
+// Uložené řazení promítni do tlačítek v menu
+(function initSortDirButtons() {
+  const grp = document.getElementById('sort-dir-btns');
+  if (!grp) return;
+  grp.querySelectorAll('.opt-btn').forEach(b => b.classList.toggle('selected', b.dataset.value === sortDir));
+})();
 
 // Online sub-tabs (stub)
 document.getElementById('online-create-btn').addEventListener('click', () => {
@@ -108,6 +125,26 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
 // Draw / discard pile clicks
 document.getElementById('draw-pile').addEventListener('click', () => humanDrawFromStock());
 document.getElementById('discard-pile').addEventListener('click', () => humanTakeFromDiscard());
+
+// Ovládání šipkami: ←/→ posun vybrané karty v ruce, ↑ odhoď vybranou kartu
+document.addEventListener('keydown', e => {
+  if (!isHumansInteractiveTurn()) return;
+  const ids = G.selected ? [...G.selected] : [];
+  if (ids.length !== 1) return;
+  const p = G.players[viewIdx()];
+  const i = p.hand.findIndex(c => c.id === ids[0]);
+  if (i === -1) return;
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (i > 0) { [p.hand[i - 1], p.hand[i]] = [p.hand[i], p.hand[i - 1]]; renderAll(); }
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    if (i < p.hand.length - 1) { [p.hand[i + 1], p.hand[i]] = [p.hand[i], p.hand[i + 1]]; renderAll(); }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (G.phase === 'meld') humanDiscard();
+  }
+});
 
 // ===== BALÍČEK =====
 function buildDeck() {
@@ -265,12 +302,13 @@ function orderMeld(cards, type) {
 
 // ===== POMOCNÉ =====
 function sortHand(p) {
+  const dir = sortDir === 'asc' ? 1 : -1;   // 'desc' = od největší hodnoty
   p.hand.sort((a, b) => {
     if (isJoker(a) && isJoker(b)) return 0;
     if (isJoker(a)) return 1;
     if (isJoker(b)) return -1;
     if (a.suit !== b.suit) return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-    return rankVal(a.rank, false) - rankVal(b.rank, false);
+    return dir * (rankVal(a.rank, true) - rankVal(b.rank, true)); // eso jako nejvyšší
   });
 }
 function removeCardFromHand(p, card) {
@@ -722,25 +760,50 @@ function renderAll() {
   renderTopBar();
 }
 
+// Kontext pro zvýraznění cílů přiložení
+function meldLayoffContext() {
+  const sel = isHumansInteractiveTurn() ? selectedCards() : [];
+  const canLayOff = isHumansInteractiveTurn() && G.phase === 'meld' && sel.length > 0 && G.players[G.currentPlayerIdx].opened;
+  return { sel, canLayOff };
+}
+function buildMeldEl(m, ctx) {
+  const el = document.createElement('div');
+  el.className = 'meld';
+  const isTarget = ctx.canLayOff && (!!meldType([...m.cards, ...ctx.sel]) || (ctx.sel.length === 1 && jokerSwapValid(m, ctx.sel[0])));
+  if (isTarget) { el.classList.add('layoff-target'); el.addEventListener('click', () => humanLayOff(m.id)); }
+  el.innerHTML = `<div class="meld-cards">${m.cards.map(cardMini).join('')}</div>`;
+  return el;
+}
+function renderMeldsInto(container, ownerIdx, ctx) {
+  container.innerHTML = '';
+  const melds = G.tableMelds.filter(m => m.ownerIdx === ownerIdx);
+  melds.forEach(m => container.appendChild(buildMeldEl(m, ctx)));
+  return melds.length;
+}
+
 function renderOpponents() {
   const strip = document.getElementById('opponents-strip');
   strip.innerHTML = '';
+  const ctx = meldLayoffContext();
   G.players.forEach((p, i) => {
     if (i === viewIdx()) return;
     const slot = document.createElement('div');
     const active = G.currentPlayerIdx === i;
     slot.className = `player-slot${active ? ' active-player' : ''}`;
     slot.dataset.pid = i;
-    // Jména robotů i zmenšeniny karet jsou tyrkysové (jednotný vzhled panelů);
-    // rozlišovací barva hráče se používá jen u vyložených sestav na stole.
+    const col = p.color || '#888';
+    slot.style.setProperty('--meld-color', col);   // barva čáry i neon obrysu = barva hráče
+    const glow = active ? `box-shadow:0 0 16px ${col}cc;background:${col}18;` : `box-shadow:0 0 7px ${col}66;`;
     const n = Math.min(p.hand.length, 15);
     const mini = Array.from({ length: n }, () => '<div class="mini-card"></div>').join('');
-    slot.innerHTML = `<div class="player-info">
+    // Jména a zmenšeniny karet tyrkysové; obrys panelu v barvě hráče.
+    slot.innerHTML = `<div class="player-info" style="border-color:${col};${glow}">
       <div class="player-name-label">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
       <div class="player-cards-row">${mini}</div>
       <div class="player-extra">${p.hand.length} karet</div>
       ${p.opened ? '<div class="player-opened">✔ vyloženo</div>' : ''}
-    </div>`;
+    </div><div class="player-melds"></div>`;
+    renderMeldsInto(slot.querySelector('.player-melds'), i, ctx);
     strip.appendChild(slot);
   });
 }
@@ -766,47 +829,9 @@ function renderTable() {
   lbl.className = 'discard-label';
   lbl.textContent = 'odhoz';
   discardEl.appendChild(lbl);
+  // Přerušovaný obrys jen dokud je odhoz prázdný; po prvním odhození zmizí.
+  discardEl.classList.toggle('empty', !top);
   discardEl.classList.toggle('can-take', isHumansInteractiveTurn() && G.phase === 'draw' && !!top && canTakeFromDiscard());
-
-  // Vyložené sestavy
-  const list = document.getElementById('melds-list');
-  const hint = document.getElementById('melds-empty-hint');
-  list.innerHTML = '';
-  hint.classList.toggle('hidden', G.tableMelds.length > 0);
-
-  const sel = isHumansInteractiveTurn() ? selectedCards() : [];
-  const canLayOff = isHumansInteractiveTurn() && G.phase === 'meld' && sel.length > 0 && G.players[G.currentPlayerIdx].opened;
-
-  // Sestavy seskupené podle hráče: soupeři nahoře (blíž ke svým panelům), já dole (blíž k ruce).
-  const vi = viewIdx();
-  const order = G.players.map(p => p.idx).filter(idx => idx !== vi);
-  order.push(vi);
-
-  order.forEach(ownerIdx => {
-    const melds = G.tableMelds.filter(m => m.ownerIdx === ownerIdx);
-    if (melds.length === 0) return;
-    const owner = G.players.find(pl => pl.idx === ownerIdx);
-    const col = owner && owner.color ? owner.color : '#888';
-    const row = document.createElement('div');
-    row.className = 'meld-row';
-    row.style.setProperty('--meld-color', col);
-    const label = document.createElement('div');
-    label.className = 'meld-row-owner';
-    label.textContent = ownerIdx === vi ? 'Ty' : owner.name;
-    row.appendChild(label);
-    const wrap = document.createElement('div');
-    wrap.className = 'meld-row-cards';
-    melds.forEach(m => {
-      const el = document.createElement('div');
-      el.className = 'meld';
-      const isTarget = canLayOff && (!!meldType([...m.cards, ...sel]) || (sel.length === 1 && jokerSwapValid(m, sel[0])));
-      if (isTarget) { el.classList.add('layoff-target'); el.addEventListener('click', () => humanLayOff(m.id)); }
-      el.innerHTML = `<div class="meld-cards">${m.cards.map(cardMini).join('')}</div>`;
-      wrap.appendChild(el);
-    });
-    row.appendChild(wrap);
-    list.appendChild(row);
-  });
 }
 
 function renderBottom() {
@@ -814,13 +839,18 @@ function renderBottom() {
   const myTurn = isHumansInteractiveTurn();
 
   // Info řádek
-  const col = p.color || 'var(--accent)';
+  const col = p.color || '#00ffcc';
   const slotC = document.getElementById('my-player-slot-container');
   slotC.innerHTML = `<div class="player-slot${myTurn ? ' active-player' : ''}">
-    <div class="player-info" style="border-color:${col};${myTurn ? `box-shadow:0 0 14px ${col}88` : ''}">
-      <div class="player-name-label" style="color:${col}">${esc(p.name)}</div>
+    <div class="player-info" style="border-color:${col};box-shadow:0 0 ${myTurn ? 14 : 7}px ${col}${myTurn ? 'cc' : '66'}">
+      <div class="player-name-label">${esc(p.name)}</div>
       <div class="player-extra">${p.hand.length} karet${p.opened ? ' · ✔ vyloženo' : ''}</div>
     </div></div>`;
+
+  // Mé vyložené karty (u ruky)
+  const myMelds = document.getElementById('my-melds');
+  myMelds.style.setProperty('--meld-color', col);
+  renderMeldsInto(myMelds, p.idx, meldLayoffContext());
 
   // Ruka
   const hand = document.getElementById('my-hand');
@@ -863,13 +893,32 @@ function renderBottom() {
     hintEl.textContent = starterFirst
       ? 'Začínáš – uspořádej si karty (přetáhni je), pak vylož sestavu a jednu kartu odhoď.'
       : 'Klepni na karty (vyber sestavu), přetažením je přeskupíš. Vylož, přilož, nebo odhoď.';
-    const sel = selectedCards();
-    const canLay = sel.length >= 3 && !!meldType(sel);
-    area.appendChild(makeBtn('Vyložit', canLay ? 'primary' : false, humanLayDown, !canLay));
-    const canDiscard = sel.length === 1;
-    area.appendChild(makeBtn('Odhodit', canDiscard ? 'primary' : false, humanDiscard, !canDiscard));
-    area.appendChild(makeBtn('Seřadit', false, humanSort));
+    if (p.hand.length === 1) {
+      // Poslední karta → hru lze zavřít (vyhrát)
+      hintEl.textContent = 'Máš poslední kartu – klikni na Zavřít a vyhraješ! 🏆';
+      area.appendChild(makeBtn('🏆 Zavřít (vyhrát)', 'primary pulse', humanClose));
+      area.appendChild(makeBtn('Seřadit', false, humanSort));
+    } else {
+      const sel = selectedCards();
+      const canLay = sel.length >= 3 && !!meldType(sel);
+      area.appendChild(makeBtn('Vyložit', canLay ? 'primary' : false, humanLayDown, !canLay));
+      const canDiscard = sel.length === 1;
+      area.appendChild(makeBtn('Odhodit', canDiscard ? 'primary' : false, humanDiscard, !canDiscard));
+      area.appendChild(makeBtn('Seřadit', false, humanSort));
+    }
   }
+}
+
+async function humanClose() {
+  if (!isHumansInteractiveTurn() || G.phase !== 'meld') return;
+  const p = G.players[G.currentPlayerIdx];
+  if (p.hand.length !== 1) return;
+  const card = p.hand[0];
+  clearSelection();
+  await animateDiscard(G.currentPlayerIdx, card);
+  removeCardFromHand(p, card);
+  G.discardPile.push(card);
+  checkFinish(p.idx); // vyloží poslední kartu → vítěz
 }
 
 function makeBtn(label, cls, handler, disabled) {
