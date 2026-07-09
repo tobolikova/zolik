@@ -210,15 +210,15 @@ html, body {
   box-shadow: 0 0 15px rgba(0,255,204,0.5);
   background: rgba(0,255,204,0.12);
 }
-.player-name-label { font-weight: bold; font-size: 0.88rem; }
+.player-name-label { font-weight: bold; font-size: 0.88rem; color: var(--accent); }
 .player-cards-row {
   display: flex; justify-content: center; gap: 2px;
   margin: 4px auto; flex-wrap: wrap; max-width: 120px;
 }
 .mini-card {
   width: 11px; height: 16px;
-  background: linear-gradient(135deg,#0d1117,#2a2d45);
-  border-radius: 2px; border: 1px solid rgba(0,255,204,0.25);
+  background: linear-gradient(135deg,#07463d,#0a6f60);
+  border-radius: 2px; border: 1px solid var(--accent);
 }
 .player-extra { font-size: 0.72rem; opacity: 0.7; }
 .player-opened { color: var(--gold); font-size: 0.68rem; font-weight: 700; }
@@ -282,11 +282,20 @@ html, body {
   text-align: center; color: var(--text-dim); font-size: 0.85rem;
   padding: 24px 0; opacity: 0.6;
 }
-#melds-list { display: flex; flex-wrap: wrap; gap: 16px 22px; align-content: flex-start; justify-content: center; }
-.meld {
+#melds-list { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: stretch; }
+.meld-row {
   --meld-color: #888;
-  display: flex; flex-direction: column; align-items: center;
-  background: none; border: none; padding: 4px 6px;
+  display: flex; align-items: center; gap: 10px;
+  justify-content: center; flex-wrap: wrap;
+}
+.meld-row-owner {
+  min-width: 64px; text-align: right;
+  font-size: 0.8rem; font-weight: 700; color: var(--meld-color);
+  letter-spacing: .02em;
+}
+.meld-row-cards { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.meld {
+  display: flex; padding: 2px 4px;
   border-radius: 8px; transition: background 0.15s;
 }
 .meld.layoff-target {
@@ -297,11 +306,7 @@ html, body {
 .meld-cards {
   display: flex;
   padding-bottom: 5px;
-  border-bottom: 2px solid var(--meld-color);
-}
-.meld-owner {
-  font-size: 0.66rem; font-weight: 700; margin-top: 4px;
-  color: var(--meld-color); letter-spacing: .02em;
+  border-bottom: 3px solid var(--meld-color);
 }
 .mini-play-card {
   width: 34px; height: 50px; background: #fff; border-radius: 4px;

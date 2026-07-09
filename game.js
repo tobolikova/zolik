@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -178,6 +178,7 @@ function startGame() {
     lastDrawnId: null,          // karta, kterou si hráč právě vzal (pro zvýraznění)
     selected: new Set(),
     winners: [],
+    lastDiscardRot: 0,          // pootočení naposledy odhozené karty (jako ve Ferblu)
     mode: mode === 'online' ? 'ai' : mode,
   };
 
@@ -370,12 +371,16 @@ function humanLayDown() {
   const type = meldType(sel);
   if (!type) { shakeHand(); showToast('Tohle není platná skupina ani postupka.', true); return; }
   const p = G.players[G.currentPlayerIdx];
+  if (p.hand.length - sel.length < 1) {
+    showToast('Nech si jednu kartu – tou pak hru zavřeš (odhodíš ji).', true);
+    return;
+  }
   sel.forEach(c => removeCardFromHand(p, c));
   G.tableMelds.push({ id: ++G.meldSeq, type, cards: orderMeld(sel, type), ownerIdx: p.idx });
   p.opened = true;
   clearSelection();
   showToast('Vyloženo! 👍');
-  if (!checkFinish(p.idx)) renderAll();
+  renderAll();
 }
 function humanLayOff(meldId) {
   if (!isHumansInteractiveTurn() || G.phase !== 'meld') return;
@@ -385,15 +390,36 @@ function humanLayOff(meldId) {
   if (sel.length === 0) return;
   const meld = G.tableMelds.find(m => m.id === meldId);
   if (!meld) return;
+
+  // VÝMĚNA ZA ŽOLÍKA: přiložím kartu, kterou žolík v sestavě zastupoval, a žolíka si vezmu
+  if (sel.length === 1 && jokerSwapValid(meld, sel[0])) {
+    const joker = meld.cards.find(isJoker);
+    const swapped = [...meld.cards.filter(c => !isJoker(c)), sel[0]];
+    const t = meldType(swapped);
+    meld.cards = orderMeld(swapped, t);
+    meld.type = t;
+    removeCardFromHand(p, sel[0]);
+    p.hand.push(joker);           // žolík putuje do ruky hráče
+    G.lastDrawnId = joker.id;     // zvýrazni ho
+    clearSelection();
+    showToast('Vyměnil(a) jsi kartu za žolíka! 🃏');
+    renderAll();
+    return;
+  }
+
   const combined = [...meld.cards, ...sel];
   const type = meldType(combined);
   if (!type) { showToast('Tyhle karty sem nepasují.', true); return; }
+  if (p.hand.length - sel.length < 1) {
+    showToast('Nech si jednu kartu – tou pak hru zavřeš (odhodíš ji).', true);
+    return;
+  }
   meld.cards = orderMeld(combined, type);
   meld.type = type;
   sel.forEach(c => removeCardFromHand(p, c));
   clearSelection();
   showToast('Přiloženo! 👍');
-  if (!checkFinish(p.idx)) renderAll();
+  renderAll();
 }
 async function humanDiscard() {
   if (!isHumansInteractiveTurn() || G.phase !== 'meld') return;
@@ -506,7 +532,11 @@ function aiWantsDiscard(p, top) {
 function aiLayDown(p) {
   if (p.difficulty === 'easy' && !p.opened && Math.random() < 0.35) return;
   const ex = extractMelds(p.hand);
-  for (const m of ex.melds) {
+  let melds = ex.melds;
+  // ať zůstane aspoň 1 karta na závěrečný odhoz (zavření)
+  const meldedTotal = melds.reduce((s, m) => s + m.length, 0);
+  if (meldedTotal >= p.hand.length && melds.length > 0) melds = melds.slice(0, -1);
+  for (const m of melds) {
     const type = meldType(m);
     if (!type) continue;
     m.forEach(c => removeCardFromHand(p, c));
@@ -613,7 +643,8 @@ async function animateDiscard(playerIdx, card) {
   const proxy = document.createElement('div');
   proxy.className = `card-proxy ${cardTxtClass(card)}`;
   proxy.innerHTML = cardFace(card);
-  const dur = Math.max(getDelay(380), 160);
+  const dur = Math.max(getDelay(450), 200);
+  proxy.style.transformOrigin = 'top left';
   proxy.style.transitionDuration = (dur / 1000) + 's';
   proxy.style.transitionProperty = 'left,top,transform,opacity';
   proxy.style.left = fromRect.left + 'px';
@@ -621,11 +652,12 @@ async function animateDiscard(playerIdx, card) {
   proxy.style.opacity = '1';
   document.body.appendChild(proxy);
   proxy.getBoundingClientRect();
-  const rot = (Math.random() * 12) - 6;
+  const rot = (Math.random() * 16) - 8;   // jako ve Ferblu: -8°..+8°
+  G.lastDiscardRot = rot;
   proxy.style.left = toRect.left + 'px';
   proxy.style.top = toRect.top + 'px';
   proxy.style.transform = `rotate(${rot}deg)`;
-  await delay(dur + 40);
+  await delay(dur + 50);
   proxy.remove();
 }
 
@@ -648,7 +680,7 @@ function revealDrawnCard(card, fromId) {
   proxy.style.transitionProperty = 'left,top,transform,opacity';
   proxy.style.left = (window.innerWidth / 2 - fromRect.width / 2) + 'px';
   proxy.style.top = (window.innerHeight * 0.4) + 'px';
-  proxy.style.transform = 'scale(2.1)';
+  proxy.style.transform = 'scale(1.9)';
   const hold = Math.max(getDelay(700), 350);
   setTimeout(() => {
     const hand = document.getElementById('my-hand');
@@ -668,6 +700,19 @@ function cardFace(c) {
   return `<span class="c-rank">${c.rank}</span><span class="c-suit">${SUIT_SYM[c.suit]}</span>`;
 }
 function cardTxtClass(c) { return isJoker(c) ? 'joker-card' : (isRed(c) ? 'txt-red' : 'txt-black'); }
+function cardMini(c) {
+  return `<div class="mini-play-card ${cardTxtClass(c)}">
+    <span class="mp-rank">${isJoker(c) ? '🃏' : c.rank}</span>
+    <span class="mp-suit">${isJoker(c) ? '' : SUIT_SYM[c.suit]}</span>
+  </div>`;
+}
+// Lze do sestavy s žolíkem vložit kartu, kterou žolík zastupuje, a žolíka si vzít?
+function jokerSwapValid(meld, card) {
+  if (isJoker(card) || !meld.cards.some(isJoker)) return false;
+  const swapped = [...meld.cards.filter(c => !isJoker(c)), card];
+  const t = meldType(swapped);
+  return !!t && swapped.length === meld.cards.length;
+}
 
 function renderAll() {
   if (!G.players || G.players.length === 0) return;
@@ -686,14 +731,15 @@ function renderOpponents() {
     const active = G.currentPlayerIdx === i;
     slot.className = `player-slot${active ? ' active-player' : ''}`;
     slot.dataset.pid = i;
-    const col = p.color || '#888';
+    // Jména robotů i zmenšeniny karet jsou tyrkysové (jednotný vzhled panelů);
+    // rozlišovací barva hráče se používá jen u vyložených sestav na stole.
     const n = Math.min(p.hand.length, 15);
-    const mini = Array.from({ length: n }, () => `<div class="mini-card" style="border-color:${col}"></div>`).join('');
-    slot.innerHTML = `<div class="player-info" style="border-color:${col};${active ? `box-shadow:0 0 16px ${col}99;background:${col}22` : ''}">
-      <div class="player-name-label" style="color:${col}">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
+    const mini = Array.from({ length: n }, () => '<div class="mini-card"></div>').join('');
+    slot.innerHTML = `<div class="player-info">
+      <div class="player-name-label">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
       <div class="player-cards-row">${mini}</div>
       <div class="player-extra">${p.hand.length} karet</div>
-      ${p.opened ? `<div class="player-opened" style="color:${col}">✔ vyloženo</div>` : ''}
+      ${p.opened ? '<div class="player-opened">✔ vyloženo</div>' : ''}
     </div>`;
     strip.appendChild(slot);
   });
@@ -713,6 +759,7 @@ function renderTable() {
     const d = document.createElement('div');
     d.className = `discard-card ${cardTxtClass(top)}`;
     d.innerHTML = cardFace(top);
+    d.style.transform = `rotate(${G.lastDiscardRot || 0}deg)`;
     discardEl.appendChild(d);
   }
   const lbl = document.createElement('div');
@@ -730,22 +777,35 @@ function renderTable() {
   const sel = isHumansInteractiveTurn() ? selectedCards() : [];
   const canLayOff = isHumansInteractiveTurn() && G.phase === 'meld' && sel.length > 0 && G.players[G.currentPlayerIdx].opened;
 
-  G.tableMelds.forEach(m => {
-    const el = document.createElement('div');
-    el.className = 'meld';
-    const owner = G.players.find(pl => pl.idx === m.ownerIdx);
+  // Sestavy seskupené podle hráče: soupeři nahoře (blíž ke svým panelům), já dole (blíž k ruce).
+  const vi = viewIdx();
+  const order = G.players.map(p => p.idx).filter(idx => idx !== vi);
+  order.push(vi);
+
+  order.forEach(ownerIdx => {
+    const melds = G.tableMelds.filter(m => m.ownerIdx === ownerIdx);
+    if (melds.length === 0) return;
+    const owner = G.players.find(pl => pl.idx === ownerIdx);
     const col = owner && owner.color ? owner.color : '#888';
-    el.style.setProperty('--meld-color', col);
-    let isTarget = false;
-    if (canLayOff && meldType([...m.cards, ...sel])) { isTarget = true; el.classList.add('layoff-target'); }
-    const cardsHtml = m.cards.map(c =>
-      `<div class="mini-play-card ${cardTxtClass(c)}">
-        <span class="mp-rank">${isJoker(c) ? '🃏' : c.rank}</span>
-        <span class="mp-suit">${isJoker(c) ? '' : SUIT_SYM[c.suit]}</span>
-      </div>`).join('');
-    el.innerHTML = `<div class="meld-cards">${cardsHtml}</div><div class="meld-owner">${esc(owner ? owner.name : '')}</div>`;
-    if (isTarget) el.addEventListener('click', () => humanLayOff(m.id));
-    list.appendChild(el);
+    const row = document.createElement('div');
+    row.className = 'meld-row';
+    row.style.setProperty('--meld-color', col);
+    const label = document.createElement('div');
+    label.className = 'meld-row-owner';
+    label.textContent = ownerIdx === vi ? 'Ty' : owner.name;
+    row.appendChild(label);
+    const wrap = document.createElement('div');
+    wrap.className = 'meld-row-cards';
+    melds.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'meld';
+      const isTarget = canLayOff && (!!meldType([...m.cards, ...sel]) || (sel.length === 1 && jokerSwapValid(m, sel[0])));
+      if (isTarget) { el.classList.add('layoff-target'); el.addEventListener('click', () => humanLayOff(m.id)); }
+      el.innerHTML = `<div class="meld-cards">${m.cards.map(cardMini).join('')}</div>`;
+      wrap.appendChild(el);
+    });
+    row.appendChild(wrap);
+    list.appendChild(row);
   });
 }
 
