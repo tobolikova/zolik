@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -818,9 +818,11 @@ function renderTable() {
   const discardEl = document.getElementById('discard-pile');
   discardEl.innerHTML = '';
   const top = G.discardPile[G.discardPile.length - 1];
+  const canTake = isHumansInteractiveTurn() && G.phase === 'draw' && !!top && canTakeFromDiscard();
   if (top) {
     const d = document.createElement('div');
-    d.className = `discard-card ${cardTxtClass(top)}`;
+    // zvýraznění „lze vzít" je přímo na kartě, aby se natočilo spolu s ní
+    d.className = `discard-card ${cardTxtClass(top)}${canTake ? ' takeable' : ''}`;
     d.innerHTML = cardFace(top);
     d.style.transform = `rotate(${G.lastDiscardRot || 0}deg)`;
     discardEl.appendChild(d);
@@ -831,7 +833,7 @@ function renderTable() {
   discardEl.appendChild(lbl);
   // Přerušovaný obrys jen dokud je odhoz prázdný; po prvním odhození zmizí.
   discardEl.classList.toggle('empty', !top);
-  discardEl.classList.toggle('can-take', isHumansInteractiveTurn() && G.phase === 'draw' && !!top && canTakeFromDiscard());
+  discardEl.classList.toggle('can-take', canTake);
 }
 
 function renderBottom() {

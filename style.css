@@ -199,7 +199,7 @@ html, body {
   z-index: 100;
 }
 .player-slot { min-width: 120px; max-width: 300px; text-align: center; display: flex; flex-direction: column; align-items: center; }
-.player-melds { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin-top: 8px; }
+.player-melds { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; margin-top: 18px; }
 .player-info {
   width: 132px;
   background: var(--panel);
@@ -268,7 +268,7 @@ html, body {
   cursor: default;
 }
 #discard-pile.empty { border: 2px dashed rgba(255,255,255,0.18); }   /* přerušovaný obrys jen dokud je prázdný */
-#discard-pile.can-take { border: 2px solid var(--gold); box-shadow: 0 0 14px rgba(255,204,0,0.5); cursor: pointer; }
+#discard-pile.can-take { cursor: pointer; }   /* zvýraznění je na kartě (.takeable), aby sedělo s natočením */
 #discard-pile .discard-label {
   position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
   font-size: 0.68rem; color: var(--text-dim); white-space: nowrap;
@@ -398,6 +398,7 @@ html, body {
 }
 .discard-card .c-rank { font-size: 1.1rem; line-height: 1; }
 .discard-card .c-suit { font-size: 1rem; line-height: 1; }
+.discard-card.takeable { border: 2px solid var(--gold); box-shadow: 0 0 14px rgba(255,204,0,0.6); }
 
 /* ===== BOTTOM AREA ===== */
 #bottom-control-area {
@@ -418,8 +419,8 @@ html, body {
 
 #my-melds {
   --meld-color: var(--accent);
-  display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 8px 16px; margin: 2px 0 6px; max-width: 96vw;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+  gap: 8px 16px; margin-top: auto; padding-bottom: 6px; max-width: 96vw;
 }
 #my-melds:empty { display: none; }
 
