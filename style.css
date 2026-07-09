@@ -193,8 +193,8 @@ html, body {
 /* ===== OPPONENTS STRIP ===== */
 #opponents-strip {
   position: absolute; top: 60px; left: 0; width: 100%;
-  display: flex; justify-content: center; align-items: flex-start;
-  gap: 10px; padding: 10px 12px;
+  display: flex; justify-content: space-evenly; align-items: flex-start;
+  gap: 40px; padding: 10px 24px;
   flex-wrap: wrap;
   z-index: 100;
 }
@@ -282,25 +282,27 @@ html, body {
   text-align: center; color: var(--text-dim); font-size: 0.85rem;
   padding: 24px 0; opacity: 0.6;
 }
-#melds-list { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; justify-content: center; }
+#melds-list { display: flex; flex-wrap: wrap; gap: 16px 22px; align-content: flex-start; justify-content: center; }
 .meld {
-  display: flex; align-items: center;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px; padding: 6px 8px;
-  transition: all 0.15s;
+  --meld-color: #888;
+  display: flex; flex-direction: column; align-items: center;
+  background: none; border: none; padding: 4px 6px;
+  border-radius: 8px; transition: background 0.15s;
 }
 .meld.layoff-target {
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(0,255,204,0.4); cursor: pointer;
-  background: rgba(0,255,204,0.08);
+  cursor: pointer;
+  background: rgba(0,255,204,0.12);
+  box-shadow: 0 0 12px rgba(0,255,204,0.35);
+}
+.meld-cards {
+  display: flex;
+  padding-bottom: 5px;
+  border-bottom: 2px solid var(--meld-color);
 }
 .meld-owner {
-  font-size: 0.62rem; color: var(--text-dim);
-  writing-mode: vertical-rl; transform: rotate(180deg);
-  margin-right: 4px; max-height: 60px; overflow: hidden;
+  font-size: 0.66rem; font-weight: 700; margin-top: 4px;
+  color: var(--meld-color); letter-spacing: .02em;
 }
-.meld-cards { display: flex; }
 .mini-play-card {
   width: 34px; height: 50px; background: #fff; border-radius: 4px;
   border: 1px solid #999; margin-left: -8px;
@@ -328,11 +330,27 @@ html, body {
 .card:first-child { margin-left: 0; }
 .card .c-rank { font-size: 1.15rem; line-height: 1; }
 .card .c-suit { font-size: 1.05rem; line-height: 1; }
-.card:hover:not(.disabled) { transform: translateY(-14px); z-index: 200; }
+.card:not(.disabled) { cursor: grab; touch-action: none; }
+.card:hover:not(.disabled):not(.dragging) { transform: translateY(-14px); z-index: 200; }
 .card.selected {
   transform: translateY(-22px);
   box-shadow: 0 0 0 3px var(--accent), 0 0 14px rgba(0,255,204,0.6);
   z-index: 210;
+}
+.card.just-drawn {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255,204,0,0.7);
+  animation: justDrawn 0.5s ease;
+}
+@keyframes justDrawn {
+  0% { transform: translateY(-40px) scale(1.15); }
+  100% { transform: translateY(0) scale(1); }
+}
+.card.dragging { opacity: 0.25; }
+.drag-clone {
+  position: fixed !important; margin: 0 !important;
+  z-index: 9999; pointer-events: none; cursor: grabbing;
+  transform: rotate(4deg) scale(1.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 0 2px var(--accent);
 }
 .card.disabled { pointer-events: none; }
 .txt-red { color: var(--red) !important; }
@@ -352,6 +370,12 @@ html, body {
   z-index: 9000;
   opacity: 0;
 }
+.card-proxy.draw-reveal {
+  z-index: 9500; transform-origin: center center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 3px var(--gold);
+}
+.card-proxy .c-rank { font-size: 1.15rem; line-height: 1; }
+.card-proxy .c-suit { font-size: 1.05rem; line-height: 1; }
 
 /* Played card in discard pile */
 .discard-card {
