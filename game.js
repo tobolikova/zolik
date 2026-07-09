@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -9,6 +9,7 @@ const SUIT_NAME = { hearts: 'Srdce', diamonds: 'Káry', clubs: 'Kříže', spade
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const RANK_ORDER = { A: 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13 };
 const AI_NAMES = ['Lily', 'Otto', 'Max', 'Mia', 'Hugo', 'Ema', 'Leo', 'Bruno', 'Viktor', 'Sára'];
+const PLAYER_COLORS = ['#00ffcc', '#ff6b6b', '#ffd23f', '#8a7dff', '#4dd07a', '#ff9f43'];
 const HAND_SIZE = 12;          // každý dostane 12, začínající hráč 13
 const DISCARD_OPEN_ROUND = 4;  // z odhozu se dá brát až od 4. kola (po 3 dohraných kolech)
 
@@ -159,6 +160,7 @@ function startGame() {
     for (const p of players) p.hand.push(deck.pop());
   }
   players[0].hand.push(deck.pop()); // začínající hráč má o kartu víc (13)
+  players.forEach((p, i) => { p.color = PLAYER_COLORS[i % PLAYER_COLORS.length]; });
 
   G = {
     players,
@@ -173,6 +175,7 @@ function startGame() {
     phase: 'meld',
     hasDrawn: true,
     tookFromDiscardId: null,
+    lastDrawnId: null,          // karta, kterou si hráč právě vzal (pro zvýraznění)
     selected: new Set(),
     winners: [],
     mode: mode === 'online' ? 'ai' : mode,
@@ -294,6 +297,7 @@ function startTurn() {
   if (starterFirst) { G.phase = 'meld'; G.hasDrawn = true; }
   else { G.phase = 'draw'; G.hasDrawn = false; }
   G.tookFromDiscardId = null;
+  G.lastDrawnId = null;
   if (p.isAI) { renderAll(); scheduleAiTurn(); return; }
   if (G.mode === 'local' && G.players.length > 1) {
     showPassOverlay(G.currentPlayerIdx, () => { sortHand(p); renderAll(); });
@@ -338,11 +342,13 @@ function humanDrawFromStock() {
   if (G.deck.length === 0) reshuffleStock();
   if (G.deck.length === 0) { showToast('Balíček je prázdný.'); return; }
   const p = G.players[G.currentPlayerIdx];
-  p.hand.push(G.deck.pop());
-  sortHand(p);
+  const card = G.deck.pop();
+  p.hand.push(card);          // nová karta jde na konec ruky (ať je vidět), neřadíme automaticky
+  G.lastDrawnId = card.id;
   G.hasDrawn = true;
   G.phase = 'meld';
   renderAll();
+  revealDrawnCard(card, 'draw-pile');
 }
 function humanTakeFromDiscard() {
   if (!isHumansInteractiveTurn() || G.phase !== 'draw') return;
@@ -351,11 +357,12 @@ function humanTakeFromDiscard() {
   const p = G.players[G.currentPlayerIdx];
   const card = G.discardPile.pop();
   p.hand.push(card);
-  sortHand(p);
+  G.lastDrawnId = card.id;
   G.tookFromDiscardId = card.id;
   G.hasDrawn = true;
   G.phase = 'meld';
   renderAll();
+  revealDrawnCard(card, 'discard-pile');
 }
 function humanLayDown() {
   if (!isHumansInteractiveTurn() || G.phase !== 'meld') return;
@@ -622,6 +629,39 @@ async function animateDiscard(playerIdx, card) {
   proxy.remove();
 }
 
+// Odhalení karty, kterou si hráč právě vzal: vyletí z hromádky, zvětší se
+// (ať je jasně vidět, co to je), pak doletí do ruky a zmizí.
+function revealDrawnCard(card, fromId) {
+  const fromEl = document.getElementById(fromId);
+  if (!fromEl) return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const proxy = document.createElement('div');
+  proxy.className = `card-proxy draw-reveal ${cardTxtClass(card)}`;
+  proxy.innerHTML = cardFace(card);
+  proxy.style.left = fromRect.left + 'px';
+  proxy.style.top = fromRect.top + 'px';
+  proxy.style.opacity = '1';
+  document.body.appendChild(proxy);
+  proxy.getBoundingClientRect();
+  const step = Math.max(getDelay(420), 200);
+  proxy.style.transitionDuration = (step / 1000) + 's';
+  proxy.style.transitionProperty = 'left,top,transform,opacity';
+  proxy.style.left = (window.innerWidth / 2 - fromRect.width / 2) + 'px';
+  proxy.style.top = (window.innerHeight * 0.4) + 'px';
+  proxy.style.transform = 'scale(2.1)';
+  const hold = Math.max(getDelay(700), 350);
+  setTimeout(() => {
+    const hand = document.getElementById('my-hand');
+    const target = hand && ([...hand.querySelectorAll('.card')].find(e => e.dataset.id === card.id) || hand);
+    const tr = target ? target.getBoundingClientRect() : fromRect;
+    proxy.style.left = tr.left + 'px';
+    proxy.style.top = tr.top + 'px';
+    proxy.style.transform = 'scale(1)';
+    proxy.style.opacity = '0';
+    setTimeout(() => proxy.remove(), step + 80);
+  }, step + hold);
+}
+
 // ===== RENDER =====
 function cardFace(c) {
   if (isJoker(c)) return `<span class="c-rank">🃏</span><span class="c-suit">JOK</span>`;
@@ -643,15 +683,17 @@ function renderOpponents() {
   G.players.forEach((p, i) => {
     if (i === viewIdx()) return;
     const slot = document.createElement('div');
-    slot.className = `player-slot${G.currentPlayerIdx === i ? ' active-player' : ''}`;
+    const active = G.currentPlayerIdx === i;
+    slot.className = `player-slot${active ? ' active-player' : ''}`;
     slot.dataset.pid = i;
+    const col = p.color || '#888';
     const n = Math.min(p.hand.length, 15);
-    const mini = Array.from({ length: n }, () => '<div class="mini-card"></div>').join('');
-    slot.innerHTML = `<div class="player-info">
-      <div class="player-name-label">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
+    const mini = Array.from({ length: n }, () => `<div class="mini-card" style="border-color:${col}"></div>`).join('');
+    slot.innerHTML = `<div class="player-info" style="border-color:${col};${active ? `box-shadow:0 0 16px ${col}99;background:${col}22` : ''}">
+      <div class="player-name-label" style="color:${col}">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
       <div class="player-cards-row">${mini}</div>
       <div class="player-extra">${p.hand.length} karet</div>
-      ${p.opened ? '<div class="player-opened">✔ vyloženo</div>' : ''}
+      ${p.opened ? `<div class="player-opened" style="color:${col}">✔ vyloženo</div>` : ''}
     </div>`;
     strip.appendChild(slot);
   });
@@ -692,6 +734,8 @@ function renderTable() {
     const el = document.createElement('div');
     el.className = 'meld';
     const owner = G.players.find(pl => pl.idx === m.ownerIdx);
+    const col = owner && owner.color ? owner.color : '#888';
+    el.style.setProperty('--meld-color', col);
     let isTarget = false;
     if (canLayOff && meldType([...m.cards, ...sel])) { isTarget = true; el.classList.add('layoff-target'); }
     const cardsHtml = m.cards.map(c =>
@@ -699,7 +743,7 @@ function renderTable() {
         <span class="mp-rank">${isJoker(c) ? '🃏' : c.rank}</span>
         <span class="mp-suit">${isJoker(c) ? '' : SUIT_SYM[c.suit]}</span>
       </div>`).join('');
-    el.innerHTML = `<div class="meld-owner">${esc(owner ? owner.name : '')}</div><div class="meld-cards">${cardsHtml}</div>`;
+    el.innerHTML = `<div class="meld-cards">${cardsHtml}</div><div class="meld-owner">${esc(owner ? owner.name : '')}</div>`;
     if (isTarget) el.addEventListener('click', () => humanLayOff(m.id));
     list.appendChild(el);
   });
@@ -710,10 +754,11 @@ function renderBottom() {
   const myTurn = isHumansInteractiveTurn();
 
   // Info řádek
+  const col = p.color || 'var(--accent)';
   const slotC = document.getElementById('my-player-slot-container');
   slotC.innerHTML = `<div class="player-slot${myTurn ? ' active-player' : ''}">
-    <div class="player-info">
-      <div class="player-name-label">${esc(p.name)}</div>
+    <div class="player-info" style="border-color:${col};${myTurn ? `box-shadow:0 0 14px ${col}88` : ''}">
+      <div class="player-name-label" style="color:${col}">${esc(p.name)}</div>
       <div class="player-extra">${p.hand.length} karet${p.opened ? ' · ✔ vyloženo' : ''}</div>
     </div></div>`;
 
@@ -722,11 +767,11 @@ function renderBottom() {
   hand.innerHTML = '';
   p.hand.forEach(c => {
     const el = document.createElement('div');
-    el.className = `card ${cardTxtClass(c)}${G.selected.has(c.id) ? ' selected' : ''}`;
+    el.className = `card ${cardTxtClass(c)}${G.selected.has(c.id) ? ' selected' : ''}${c.id === G.lastDrawnId ? ' just-drawn' : ''}`;
     el.dataset.id = c.id;
     el.innerHTML = cardFace(c);
     if (myTurn) {
-      el.addEventListener('click', () => toggleSelect(c.id));
+      el.addEventListener('pointerdown', e => onCardPointerDown(e, c));
     } else {
       el.classList.add('disabled');
     }
@@ -749,15 +794,15 @@ function renderBottom() {
 
   if (G.phase === 'draw') {
     hintEl.textContent = canTakeFromDiscard()
-      ? 'Vezmi si kartu z balíčku nebo z odhozu.'
-      : `Vezmi si kartu z balíčku. (Z odhozu až od ${DISCARD_OPEN_ROUND}. kola.)`;
+      ? 'Vezmi si kartu z balíčku nebo z odhozu. Karty si můžeš přetáhnout a uspořádat.'
+      : `Vezmi si kartu z balíčku. (Z odhozu až od ${DISCARD_OPEN_ROUND}. kola.) Karty si můžeš přetáhnout.`;
     area.appendChild(makeBtn('Vzít z balíčku', 'primary pulse', humanDrawFromStock));
     const top = G.discardPile[G.discardPile.length - 1];
     if (top && canTakeFromDiscard()) area.appendChild(makeBtn(`Vzít z odhozu`, false, humanTakeFromDiscard));
   } else {
     hintEl.textContent = starterFirst
-      ? 'Začínáš – nebereš si kartu. Můžeš vyložit sestavu a jednu kartu odhoď.'
-      : 'Vylož sestavu, přilož na stůl (klepni na sestavu), a odhoď jednu kartu.';
+      ? 'Začínáš – uspořádej si karty (přetáhni je), pak vylož sestavu a jednu kartu odhoď.'
+      : 'Klepni na karty (vyber sestavu), přetažením je přeskupíš. Vylož, přilož, nebo odhoď.';
     const sel = selectedCards();
     const canLay = sel.length >= 3 && !!meldType(sel);
     area.appendChild(makeBtn('Vyložit', canLay ? 'primary' : false, humanLayDown, !canLay));
@@ -780,6 +825,77 @@ function toggleSelect(id) {
   if (G.selected.has(id)) G.selected.delete(id);
   else G.selected.add(id);
   renderAll();
+}
+
+// ===== PŘETAHOVÁNÍ KARET V RUCE (klepnutí = výběr, tažení = přesun) =====
+let dragState = null;
+function onCardPointerDown(e, card) {
+  if (!isHumansInteractiveTurn()) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  const el = e.currentTarget;
+  dragState = { card, el, startX: e.clientX, startY: e.clientY, moved: false, clone: null, offX: 0, offY: 0 };
+  const move = ev => onCardPointerMove(ev);
+  const up = ev => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.removeEventListener('pointercancel', up);
+    onCardPointerUp(ev);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+}
+function onCardPointerMove(ev) {
+  if (!dragState) return;
+  const dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
+  if (!dragState.moved && Math.hypot(dx, dy) > 8) {
+    dragState.moved = true;
+    const r = dragState.el.getBoundingClientRect();
+    const clone = dragState.el.cloneNode(true);
+    clone.className = 'card ' + (dragState.card.joker ? 'joker-card' : (isRed(dragState.card) ? 'txt-red' : 'txt-black')) + ' drag-clone';
+    clone.style.width = r.width + 'px';
+    clone.style.height = r.height + 'px';
+    clone.style.left = r.left + 'px';
+    clone.style.top = r.top + 'px';
+    document.body.appendChild(clone);
+    dragState.clone = clone;
+    dragState.offX = dragState.startX - r.left;
+    dragState.offY = dragState.startY - r.top;
+    dragState.el.classList.add('dragging');
+  }
+  if (dragState.moved) {
+    ev.preventDefault();
+    dragState.clone.style.left = (ev.clientX - dragState.offX) + 'px';
+    dragState.clone.style.top = (ev.clientY - dragState.offY) + 'px';
+  }
+}
+function onCardPointerUp(ev) {
+  if (!dragState) return;
+  const ds = dragState;
+  dragState = null;
+  if (ds.clone) ds.clone.remove();
+  if (ds.el) ds.el.classList.remove('dragging');
+  if (!ds.moved) { toggleSelect(ds.card.id); return; }   // nepohnul = klepnutí = výběr
+  const p = G.players[viewIdx()];
+  const from = p.hand.findIndex(c => c.id === ds.card.id);
+  if (from === -1) { renderAll(); return; }
+  let target = handDropIndex(ev.clientX, ev.clientY);
+  const [moved] = p.hand.splice(from, 1);
+  if (target > from) target -= 1;
+  target = Math.max(0, Math.min(target, p.hand.length));
+  p.hand.splice(target, 0, moved);
+  renderAll();
+}
+function handDropIndex(x, y) {
+  const cards = [...document.querySelectorAll('#my-hand .card')];
+  let best = cards.length, bestDist = Infinity;
+  cards.forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d < bestDist) { bestDist = d; best = (x < cx) ? i : i + 1; }
+  });
+  return best;
 }
 
 function renderTopBar() {
