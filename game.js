@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -76,7 +76,7 @@ function buildNameInputs(count) {
   for (let i = 0; i < count; i++) {
     const row = document.createElement('div');
     row.className = 'name-row';
-    row.innerHTML = `<label>Hráč ${i + 1}</label><input type="text" class="name-input player-name-inp" value="Hráč ${i + 1}">`;
+    row.innerHTML = `<label>Hráč ${i + 1}</label><input type="text" class="name-input player-name-inp" value="Hráč ${i + 1}" maxlength="13">`;
     container.appendChild(row);
   }
 }
@@ -764,6 +764,9 @@ function renderAll() {
   renderTopBar();
 }
 
+// Ikonka podle typu hráče: robot 🕹️, člověk 🎮
+function playerIcon(p) { return p.isAI ? '🕹️' : '🎮'; }
+
 // Kontext pro zvýraznění cílů přiložení
 function meldLayoffContext() {
   const sel = isHumansInteractiveTurn() ? selectedCards() : [];
@@ -802,7 +805,7 @@ function renderOpponents() {
     const mini = Array.from({ length: n }, () => '<div class="mini-card"></div>').join('');
     // Jména a zmenšeniny karet tyrkysové; obrys panelu v barvě hráče.
     slot.innerHTML = `<div class="player-info" style="border-color:${col};${glow}">
-      <div class="player-name-label">${esc(p.name)}${p.isAI ? ' 🤖' : ''}</div>
+      <div class="player-name-label">${esc(p.name)} ${playerIcon(p)}</div>
       <div class="player-cards-row">${mini}</div>
       <div class="player-extra">${p.hand.length} karet</div>
       ${p.opened ? '<div class="player-opened">✔ vyloženo</div>' : ''}
@@ -849,7 +852,7 @@ function renderBottom() {
   const slotC = document.getElementById('my-player-slot-container');
   slotC.innerHTML = `<div class="player-slot${myTurn ? ' active-player' : ''}">
     <div class="player-info" style="border-color:${col};box-shadow:0 0 ${myTurn ? 14 : 7}px ${col}${myTurn ? 'cc' : '66'}">
-      <div class="player-name-label">${esc(p.name)}</div>
+      <div class="player-name-label">${esc(p.name)} ${playerIcon(p)}</div>
       <div class="player-extra">${p.hand.length} karet${p.opened ? ' · ✔ vyloženo' : ''}</div>
     </div></div>`;
 
@@ -882,7 +885,6 @@ function renderBottom() {
   if (!myTurn) {
     hintEl.textContent = G.players[G.currentPlayerIdx].isAI ? 'Na tahu je robot…' : 'Čekej na svůj tah.';
     if (viewIdx() === G.currentPlayerIdx) hintEl.textContent = '';
-    area.appendChild(makeBtn('Seřadit karty', false, humanSort));
     return;
   }
 
@@ -903,14 +905,14 @@ function renderBottom() {
       // Poslední karta → hru lze zavřít (vyhrát)
       hintEl.textContent = 'Máš poslední kartu – klikni na Zavřít a vyhraješ! 🏆';
       area.appendChild(makeBtn('🏆 Zavřít (vyhrát)', 'primary pulse', humanClose));
-      area.appendChild(makeBtn('Seřadit', false, humanSort));
     } else {
       const sel = selectedCards();
-      const canLay = sel.length >= 3 && !!meldType(sel);
-      area.appendChild(makeBtn('Vyložit', canLay ? 'primary' : false, humanLayDown, !canLay));
+      // „Vyložit" se objeví jen když označené karty tvoří platnou sestavu
+      if (sel.length >= 3 && meldType(sel)) {
+        area.appendChild(makeBtn('Vyložit', 'primary', humanLayDown));
+      }
       const canDiscard = sel.length === 1;
       area.appendChild(makeBtn('Odhodit', canDiscard ? 'primary' : false, humanDiscard, !canDiscard));
-      area.appendChild(makeBtn('Seřadit', false, humanSort));
     }
   }
 }
