@@ -226,6 +226,13 @@ html, body {
 .player-extra { font-size: 0.72rem; opacity: 0.7; }
 .player-opened { color: var(--gold); font-size: 0.68rem; font-weight: 700; }
 
+/* Okénka soupeřů o ~20 % větší než ta spodní */
+#opponents-strip .player-info { width: 158px; padding: 9px 12px; }
+#opponents-strip .player-name-label { font-size: 1.05rem; }
+#opponents-strip .player-extra { font-size: 0.86rem; }
+#opponents-strip .player-opened { font-size: 0.82rem; }
+#opponents-strip .mini-card { width: 13px; height: 19px; }
+
 /* ===== TABLE AREA (center) ===== */
 #table-area {
   position: absolute;
