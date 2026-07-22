@@ -48,7 +48,8 @@ html, body {
 /* ===== SETUP SCREEN ===== */
 #screen-setup {
   gap: 0;
-  overflow-y: auto;
+  overflow-y: scroll;              /* posuvník má místo pořád → menu při přepínání módu neposkakuje */
+  scrollbar-gutter: stable;
   padding: 28px 16px;
 }
 .setup-title {

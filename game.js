@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.4.0';
+const VERSION = '1.4.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
@@ -42,8 +42,12 @@ function handPoints(p) { return p.hand.reduce((s, c) => s + cardPoints(c), 0); }
 
 // ===== SETUP UI =====
 setupBtnGroup('mode-btns', v => {
+  const ai = v === 'ai';
+  // Tvé jméno, počet robotů a obtížnost dávají smysl jen u "Vs roboti"
+  document.getElementById('row-name').classList.toggle('hidden', !ai);
+  document.getElementById('ai-count-row').classList.toggle('hidden', !ai);
+  document.getElementById('ai-diff-row').classList.toggle('hidden', !ai);
   document.getElementById('local-settings').classList.toggle('hidden', v !== 'local');
-  document.getElementById('ai-settings').classList.toggle('hidden', v !== 'ai');
   document.getElementById('online-settings').classList.toggle('hidden', v !== 'online');
 });
 setupBtnGroup('player-count-btns', v => buildNameInputs(parseInt(v, 10)));
