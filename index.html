@@ -13,8 +13,24 @@
   <!-- ===== NASTAVENÍ ===== -->
   <div id="screen-setup" class="screen">
     <div class="setup-title">ŽOLÍK</div>
-    <div class="setup-subtitle">Klasická karetní hra – skládej skupiny a postupky</div>
 
+    <!-- Popis hry -->
+    <div class="rules-hint">
+      Vezmi si kartu, poskládej <b>skupiny</b> (3–4 stejné hodnoty) nebo <b>postupky</b>
+      (3+ za sebou v jedné barvě) a jednu kartu odhoď. Kdo první vyloží všechny karty, vyhrává.
+      <b>Žolík</b> 🃏 zastoupí libovolnou kartu.
+    </div>
+
+    <!-- Řazení karet (první možnost) -->
+    <div class="settings-row">
+      <span class="settings-label">ŘAZENÍ KARET</span>
+      <div class="opt-group" id="sort-dir-btns">
+        <button class="opt-btn selected" data-value="desc">Od největší</button>
+        <button class="opt-btn" data-value="asc">Od nejmenší</button>
+      </div>
+    </div>
+
+    <!-- Herní mód -->
     <div class="settings-row">
       <span class="settings-label">HERNÍ MÓD</span>
       <div class="opt-group" id="mode-btns">
@@ -24,7 +40,33 @@
       </div>
     </div>
 
-    <!-- Lokální nastavení -->
+    <!-- Tvé jméno (jen Vs roboti) -->
+    <div class="name-row" id="row-name">
+      <label>Tvé jméno</label>
+      <input type="text" id="ai-player-name" value="TY" class="name-input">
+    </div>
+
+    <!-- Počet robotů (jen Vs roboti) -->
+    <div class="settings-row" id="ai-count-row">
+      <span class="settings-label">POČET ROBOTŮ</span>
+      <div class="opt-group" id="ai-count-btns" style="flex-wrap:nowrap">
+        <button class="opt-btn" data-value="1">1</button>
+        <button class="opt-btn selected" data-value="2">2</button>
+        <button class="opt-btn" data-value="3">3</button>
+      </div>
+    </div>
+
+    <!-- Obtížnost (jen Vs roboti) -->
+    <div class="settings-row" id="ai-diff-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+      <span class="settings-label">OBTÍŽNOST</span>
+      <div class="opt-group" id="ai-diff-btns">
+        <button class="opt-btn" data-value="easy">Lehká</button>
+        <button class="opt-btn selected" data-value="medium">Střední</button>
+        <button class="opt-btn" data-value="hard">Těžká</button>
+      </div>
+    </div>
+
+    <!-- Lokální nastavení (jen Lokální) -->
     <div id="local-settings" class="hidden">
       <div class="settings-row">
         <span class="settings-label">POČET HRÁČŮ</span>
@@ -37,31 +79,7 @@
       <div id="player-names-container"></div>
     </div>
 
-    <!-- AI nastavení -->
-    <div id="ai-settings">
-      <div class="settings-row">
-        <span class="settings-label">POČET ROBOTŮ</span>
-        <div class="opt-group" id="ai-count-btns" style="flex-wrap:nowrap">
-          <button class="opt-btn" data-value="1">1</button>
-          <button class="opt-btn selected" data-value="2">2</button>
-          <button class="opt-btn" data-value="3">3</button>
-        </div>
-      </div>
-      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
-        <span class="settings-label">OBTÍŽNOST</span>
-        <div class="opt-group" id="ai-diff-btns">
-          <button class="opt-btn" data-value="easy">Lehká</button>
-          <button class="opt-btn selected" data-value="medium">Střední</button>
-          <button class="opt-btn" data-value="hard">Těžká</button>
-        </div>
-      </div>
-      <div class="name-row">
-        <label>Tvé jméno</label>
-        <input type="text" id="ai-player-name" value="TY" class="name-input">
-      </div>
-    </div>
-
-    <!-- Online nastavení -->
+    <!-- Online nastavení (jen Online) -->
     <div id="online-settings" class="hidden">
       <div class="opt-group" style="margin-bottom:12px">
         <button class="opt-btn selected" id="online-create-btn">Vytvořit hru</button>
@@ -90,20 +108,6 @@
         </div>
         <button class="btn-menu" id="do-join-room-btn" style="margin-top:8px">Připojit se</button>
       </div>
-    </div>
-
-    <div class="settings-row">
-      <span class="settings-label">ŘAZENÍ KARET</span>
-      <div class="opt-group" id="sort-dir-btns">
-        <button class="opt-btn selected" data-value="desc">Od největší</button>
-        <button class="opt-btn" data-value="asc">Od nejmenší</button>
-      </div>
-    </div>
-
-    <div class="rules-hint">
-      Vezmi si kartu, poskládej <b>skupiny</b> (3–4 stejné hodnoty) nebo <b>postupky</b>
-      (3+ za sebou v jedné barvě) a jednu kartu odhoď. Kdo první vyloží všechny karty, vyhrává.
-      <b>Žolík</b> 🃏 zastoupí libovolnou kartu.
     </div>
 
     <button class="btn-menu btn-start" id="start-btn">HRÁT</button>
