@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.3.1';
+const VERSION = '2.4.0';
 
 // ===== KONSTANTY =====
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
